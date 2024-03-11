@@ -12,7 +12,8 @@ IPAddress ip2(255, 255, 255, 0); //subnetwork mask
 const char* ssid = "RVT_UHTRED";
 const char* password = "0390sharpe";
 
-int rele = 24;
+#define rele_pin 4
+
 // Create an instance of the server
 // specify the port to listen on as an argument
 WiFiServer server(80);
@@ -25,8 +26,8 @@ void setup() {
   tempCom.defiSP(5000);
 
   // prepare GPIO2
-  pinMode(rele, OUTPUT);
-  digitalWrite(rele, 0);
+  pinMode(rele_pin, OUTPUT);
+  digitalWrite(rele_pin, 0);
 
   // Connect to WiFi network
   Serial.println();
@@ -101,7 +102,7 @@ tempCom.Saida(0);
   }
 
   // Set GPIO2 according to the request
-  digitalWrite(rele, val);
+  digitalWrite(rele_pin, val);
 
   client.flush();
 
