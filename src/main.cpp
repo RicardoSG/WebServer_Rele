@@ -1,5 +1,9 @@
 #include <Arduino.h>
+#include <Crescer.h>
 #include <WiFi.h>
+
+//timer withou delay (crescer automacao)
+Tempora tempCom;
 
 IPAddress ip (192, 168, 10, 50); //esp32 ip
 IPAddress ip1(192, 168, 10, 1); //gateway padrao
@@ -16,6 +20,9 @@ WiFiServer server(80);
 void setup() {
   Serial.begin(115200);
   delay(10);
+
+  //run timer with 5 seconds
+  tempCom.defiSP(5000);
 
   // prepare GPIO2
   pinMode(rele, OUTPUT);
@@ -57,9 +64,24 @@ void loop() {
 
   // Wait until the client sends some data
   Serial.println("new client");
-  while (!client.available()) {
+    while(!client.available()){
     delay(1);
+    if (tempCom.Saida(1))
+    {
+      Serial.println("Tempo excedeu");
+      client.flush();
+       String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\nNAO COMUNICOU !!! ";
+       s += "</html>\n";
+      // Send the response to the client
+      client.print(s);
+      delay(1);
+      Serial.println("Client desconectado depois da nao comunicacao");
+      tempCom.Saida(0);
+      return;
+    }
   }
+tempCom.Saida(0);
+
 
   // Read the first line of the request
   String req = client.readStringUntil('\r');
