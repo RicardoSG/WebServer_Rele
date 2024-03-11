@@ -1,115 +1,98 @@
-/*
- WiFi Web Server LED Blink
-
- A simple web server that lets you blink an LED via the web.
- This sketch will print the IP address of your WiFi Shield (once connected)
- to the Serial monitor. From there, you can open that address in a web browser
- to turn on and off the LED on pin 5.
-
- If the IP address of your shield is yourAddress:
- http://yourAddress/H turns the LED on
- http://yourAddress/L turns it off
-
- This example is written for a network using WPA2 encryption. For insecure
- WEP or WPA, change the Wifi.begin() call and use Wifi.setMinSecurity() accordingly.
-
- Circuit:
- * WiFi shield attached
- * LED attached to pin 5
-
- created for arduino 25 Nov 2012
- by Tom Igoe
-
-ported for sparkfun esp32 
-31.01.2017 by Jan Hendrik Berlin
- 
- */
-
 #include <Arduino.h>
 #include <WiFi.h>
 
-const char* ssid     = "---------";
-const char* password = "----------";
+IPAddress ip (192, 168, 10, 50); //esp32 ip
+IPAddress ip1(192, 168, 10, 1); //gateway padrao
+IPAddress ip2(255, 255, 255, 0); //subnetwork mask
 
+const char* ssid = "RVT_UHTRED";
+const char* password = "0390sharpe";
+
+int rele = 24;
+// Create an instance of the server
+// specify the port to listen on as an argument
 WiFiServer server(80);
 
-void setup()
-{
-    Serial.begin(115200);
-    pinMode(13, OUTPUT);      // set the LED pin mode
+void setup() {
+  Serial.begin(115200);
+  delay(10);
 
-    delay(10);
+  // prepare GPIO2
+  pinMode(rele, OUTPUT);
+  digitalWrite(rele, 0);
 
-    // We start by connecting to a WiFi network
+  // Connect to WiFi network
+  Serial.println();
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
 
-    Serial.println();
-    Serial.println();
-    Serial.print("Connecting to ");
-    Serial.println(ssid);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
 
-    WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
 
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
+  WiFi.config(ip, ip1, ip2);
 
-    Serial.println("");
-    Serial.println("WiFi connected.");
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
-    
-    server.begin();
+  Serial.println("");
+  Serial.println("WiFi connected");
 
+  // Start the server
+  server.begin();
+  Serial.println("Server started");
+
+  // Print the IP address
+  Serial.println(WiFi.localIP());
 }
 
-void loop(){
- WiFiClient client = server.available();   // listen for incoming clients
-
-  if (client) {                             // if you get a client,
-    Serial.println("New Client.");           // print a message out the serial port
-    String currentLine = "";                // make a String to hold incoming data from the client
-    while (client.connected()) {            // loop while the client's connected
-      if (client.available()) {             // if there's bytes to read from the client,
-        char c = client.read();             // read a byte, then
-        Serial.write(c);                    // print it out the serial monitor
-        if (c == '\n') {                    // if the byte is a newline character
-
-          // if the current line is blank, you got two newline characters in a row.
-          // that's the end of the client HTTP request, so send a response:
-          if (currentLine.length() == 0) {
-            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
-            // and a content-type so the client knows what's coming, then a blank line:
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-type:text/html");
-            client.println();
-
-            // the content of the HTTP response follows the header:
-            client.print("Click <a href=\"/H\">here</a> to turn the LED on pin 5 on.<br>");
-            client.print("Click <a href=\"/L\">here</a> to turn the LED on pin 5 off.<br>");
-
-            // The HTTP response ends with another blank line:
-            client.println();
-            // break out of the while loop:
-            break;
-          } else {    // if you got a newline, then clear currentLine:
-            currentLine = "";
-          }
-        } else if (c != '\r') {  // if you got anything else but a carriage return character,
-          currentLine += c;      // add it to the end of the currentLine
-        }
-
-        // Check to see if the client request was "GET /H" or "GET /L":
-        if (currentLine.endsWith("GET /H")) {
-          digitalWrite(5, HIGH);               // GET /H turns the LED on
-        }
-        if (currentLine.endsWith("GET /L")) {
-          digitalWrite(5, LOW);                // GET /L turns the LED off
-        }
-      }
-    }
-    // close the connection:
-    client.stop();
-    Serial.println("Client Disconnected.");
+void loop() {
+  // Check if a client has connected
+  WiFiClient client = server.available();
+  if (!client) {
+    return;
   }
+
+  // Wait until the client sends some data
+  Serial.println("new client");
+  while (!client.available()) {
+    delay(1);
+  }
+
+  // Read the first line of the request
+  String req = client.readStringUntil('\r');
+  Serial.println(req);
+  client.flush();
+
+  // Match the request
+  int val;
+  if (req.indexOf("/gpio/0") != -1) {
+    val = 0;
+  } else if (req.indexOf("/gpio/1") != -1) {
+    val = 1;
+  } else {
+    Serial.println("invalid request");
+    client.stop();
+    return;
+  }
+
+  // Set GPIO2 according to the request
+  digitalWrite(rele, val);
+
+  client.flush();
+
+  // Prepare the response
+  String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\nGPIO is now ";
+  s += (val) ? "high" : "low";
+  s += "</html>\n";
+
+  // Send the response to the client
+  client.print(s);
+  delay(1);
+  Serial.println("Client disonnected");
+
+  // The client will actually be disconnected
+  // when the function returns and 'client' object is detroyed
 }
