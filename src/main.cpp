@@ -14,6 +14,9 @@ const char* password = "0390sharpe";
 
 #define rele_pin 4
 
+//trigger the relay with button
+int val = 1;
+
 // Create an instance of the server
 // specify the port to listen on as an argument
 WiFiServer server(80);
@@ -27,7 +30,7 @@ void setup() {
 
   // prepare GPIO2
   pinMode(rele_pin, OUTPUT);
-  digitalWrite(rele_pin, 0);
+  digitalWrite(rele_pin, val);
 
   // Connect to WiFi network
   Serial.println();
@@ -90,15 +93,14 @@ tempCom.Saida(0);
   client.flush();
 
   // Match the request
-  int val;
-  if (req.indexOf("/gpio/0") != -1) {
-    val = 0;
-  } else if (req.indexOf("/gpio/1") != -1) {
+  if (req.indexOf("?Desliga=") != -1)
     val = 1;
-  } else {
+  else if (req.indexOf("?Liga=") != -1)
+    val = 0;
+  else {
     Serial.println("invalid request");
-    client.stop();
-    return;
+    //client.stop();
+    //return;
   }
 
   // Set GPIO2 according to the request
@@ -107,14 +109,25 @@ tempCom.Saida(0);
   client.flush();
 
   // Prepare the response
-  String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\nGPIO is now ";
-  s += (val) ? "high" : "low";
+ String s = "";
+  s += "<h1><html style=\"font-size:14px\"> Menu ESP8266 (Automa&ccedil;&atilde;o para Leigos)\n</h1>";
+  s += "<body>\n";
+  s += "<form action=\"http://192.168.10.50\" method=\"get\">\n";
+  s += "<b><br></br><html style=\"font-size:14px\"> Ligar LED da placa do ESP8266\n</b>";
+  s +=  "<p></p><button input name=\"Desliga\" style=\"height:20px;width:150px;font-size:13px\" >Desligar</button>"; //<br></br>
+  s +=  "<button input name=\"Liga\" style=\"height:20px;width:150px;font-size:13px\" >Ligar</button>";
+  s += "<p></p>";
+  s += "</form>\n";
+  s += "</body>\n";
   s += "</html>\n";
+
 
   // Send the response to the client
   client.print(s);
   delay(1);
   Serial.println("Client disonnected");
+
+  client.stop();
 
   // The client will actually be disconnected
   // when the function returns and 'client' object is detroyed
